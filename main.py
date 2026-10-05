@@ -7,6 +7,17 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
+@app.after_request
+def add_cors(resp):
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return resp
+
+@app.route("/analyze-one", methods=["OPTIONS"])
+def analyze_one_options():
+    return "", 204
+
 SUPABASE_URL = "https://olpboftfsvldjjopchxk.supabase.co"
 SUPABASE_KEY = "sb_publishable_ExJp1pJ72ZQm1BHbvECnkw_urfpNaDd"
 
