@@ -1,5 +1,6 @@
 import os
 import io
+import tempfile
 import requests
 import librosa
 import numpy as np
@@ -30,7 +31,19 @@ def analyze_one():
     try:
         r = requests.get(url, timeout=60)
         r.raise_for_status()
-        y, sr = librosa.load(io.BytesIO(r.content), sr=22050, mono=True)
+
+        # Bajamos a un archivo REAL en disco, no a memoria -esto habilita
+        # que librosa use ffmpeg como respaldo para formatos como .m4a,
+        # cosa que no puede hacer bien leyendo desde BytesIO.
+        suffix = os.path.splitext(url.split("?")[0])[1] or ".audio"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(r.content)
+            tmp_path = tmp.name
+
+        try:
+            y, sr = librosa.load(tmp_path, sr=22050, mono=True)
+        finally:
+            os.remove(tmp_path)
 
         tempo, _ = librosa.beat.beat_track(y=y, sr=sr, trim=False)
         bpm = round(float(np.atleast_1d(tempo)[0]), 1)
