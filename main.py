@@ -9,6 +9,7 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app, origins=[
+    "https://boxdj.lovable.app",
     "https://music-stacker-pro.lovable.app",
     "https://id-preview--26fcdc32-f9c1-45ba-aa57-5bf9395d5d43.lovable.app"
 ])
@@ -49,26 +50,30 @@ def analyze_one():
         bpm = round(float(np.atleast_1d(tempo)[0]), 1)
         duracion = round(float(librosa.get_duration(y=y, sr=sr)), 1)
 
-        import datetime
-        patch_url = f"{SUPABASE_URL}/rest/v1/axis_catalogo_musical?hash_archivo=eq.{hash_archivo}"
-        resp = requests.patch(
-            patch_url,
+        resp = requests.post(
+            f"{SUPABASE_URL}/rest/v1/rpc/catalogo_guardar_analisis",
             headers={
                 "apikey": SUPABASE_KEY,
                 "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": "application/json",
-                "Prefer": "return=representation"
+                "Content-Type": "application/json"
             },
             json={
-                "bpm": bpm,
-                "duracion_seg": duracion,
-                "fecha_analisis": datetime.datetime.utcnow().isoformat(),
-                "motor_analisis": "cloudrun-librosa-v1"
-            }
+                "p_hash": hash_archivo,
+                "p_bpm": bpm,
+                "p_duracion": duracion,
+                "p_motor": "cloudrun-librosa-v1"
+            },
+            timeout=30
         )
 
-        if resp.status_code not in (200, 204):
-            return jsonify({"error": "fallo update en supabase", "detalle": resp.text}), 500
+        if resp.status_code != 200:
+            return jsonify({"error": "fallo guardado en supabase", "detalle": resp.text}), 500
+
+        if resp.text.strip() != "true":
+            return jsonify({
+                "error": "no se guardo: el tema ya estaba analizado o el hash no existe",
+                "hash_archivo": hash_archivo, "bpm": bpm, "duracion_seg": duracion
+            }), 409
 
         return jsonify({"ok": True, "hash_archivo": hash_archivo, "bpm": bpm, "duracion_seg": duracion}), 200
 
